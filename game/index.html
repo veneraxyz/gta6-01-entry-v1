@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Harbor — an open-world crime game</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #141a2e;
+    font-family: "Segoe UI", system-ui, sans-serif; color: #e8ecf4; }
+  #app { position: fixed; inset: 0; }
+  canvas.webgl { display: block; width: 100%; height: 100%; touch-action: none; }
+  .hidden { display: none !important; }
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #stars { position: absolute; top: 14px; left: 16px; font-size: 30px; letter-spacing: 4px;
+    color: #ffd23e; text-shadow: 0 0 10px rgba(255, 210, 62, .7); }
+  #stars .off { color: rgba(255, 255, 255, .18); text-shadow: none; }
+  #money { position: absolute; top: 52px; left: 18px; font-size: 24px; font-weight: 700;
+    color: #7dff9e; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+  #health { position: absolute; top: 84px; left: 18px; width: 170px; height: 12px;
+    background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.35); border-radius: 6px; }
+  #healthfill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a5a, #ff8a5a);
+    border-radius: 6px; transition: width .2s; }
+  #mission { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    text-align: center; background: rgba(10, 12, 24, .62); border: 1px solid rgba(168, 120, 255, .55);
+    border-radius: 10px; padding: 8px 18px; max-width: 520px; }
+  #mission .mname { color: #c9a7ff; font-weight: 700; font-size: 15px; letter-spacing: 1px; }
+  #mission .mtext { font-size: 14px; margin-top: 2px; }
+  #mission .mdist { color: #9fd8ff; font-size: 13px; margin-top: 2px; }
+  #speed { position: absolute; right: 210px; bottom: 18px; font-size: 34px; font-weight: 800;
+    color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9); text-align: right; }
+  #speed small { font-size: 14px; font-weight: 400; color: #c9d2e8; }
+  #minimap { position: absolute; right: 14px; bottom: 14px; width: 180px; height: 180px;
+    border: 2px solid rgba(255,255,255,.35); border-radius: 8px; background: rgba(8,10,20,.8); }
+  #prompt { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%);
+    font-size: 18px; font-weight: 600; background: rgba(0,0,0,.6); padding: 6px 14px;
+    border-radius: 8px; border: 1px solid rgba(255,255,255,.3); }
+  #prompt b { color: #ffd23e; }
+  #toasts { position: absolute; left: 50%; bottom: 180px; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .toast { background: rgba(10, 12, 24, .8); border: 1px solid rgba(255,255,255,.25);
+    padding: 7px 16px; border-radius: 8px; font-size: 15px; animation: toastin .25s ease-out; }
+  @keyframes toastin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px;
+    margin: -11px 0 0 -11px; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff;
+    box-shadow: 0 0 4px #000; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
+  #wasted { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 84px; font-weight: 900; letter-spacing: 12px; color: #ff3b3b;
+    text-shadow: 0 0 30px rgba(255, 0, 0, .8); background: rgba(20,0,0,.45); }
+  #busted { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 84px; font-weight: 900; letter-spacing: 12px; color: #4aa8ff;
+    text-shadow: 0 0 30px rgba(0, 80, 255, .8); background: rgba(0,0,20,.45); }
+  /* ---- Menu / pause ---- */
+  .overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+    background: linear-gradient(180deg, rgba(10,14,34,.88), rgba(24,10,40,.92)); }
+  .overlay h1 { font-size: 64px; margin: 0; letter-spacing: 8px; font-weight: 900;
+    background: linear-gradient(90deg, #ff5ad2, #7a5aff, #29c6ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 0 40px rgba(122, 90, 255, .35); }
+  .overlay h2 { margin: 0; font-size: 16px; color: #b9c4e0; letter-spacing: 3px; font-weight: 400; }
+  .overlay button { pointer-events: auto; cursor: pointer; font-size: 18px; font-weight: 700;
+    padding: 12px 34px; border-radius: 10px; border: 1px solid #a878ff;
+    background: linear-gradient(180deg, #3a2a6e, #241845); color: #fff; }
+  .overlay button:hover { background: linear-gradient(180deg, #4d3791, #2f2160); }
+  .overlay .controls { font-size: 14px; line-height: 1.9; color: #c9d2e8; text-align: center;
+    background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 10px; padding: 12px 26px; }
+  .overlay .controls b { color: #ffd23e; }
+  .overlay .save { font-size: 14px; color: #7dff9e; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud" class="hidden">
+  <div id="stars"><span class="off">★</span><span class="off">★</span><span class="off">★</span><span class="off">★</span><span class="off">★</span></div>
+  <div id="money">$50</div>
+  <div id="health"><div id="healthfill"></div></div>
+  <div id="mission"><div class="mname">NEON HARBOR</div><div class="mtext">Meet the Fixer.</div><div class="mdist"></div></div>
+  <div id="speed" class="hidden">0 <small>km/h</small></div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="prompt" class="hidden"></div>
+  <div id="toasts"></div>
+  <div id="crosshair" class="hidden"></div>
+  <div id="wasted" class="hidden">WASTED</div>
+  <div id="busted" class="hidden">BUSTED</div>
+</div>
+<div id="menu" class="overlay">
+  <h1>NEON HARBOR</h1>
+  <h2>AN OPEN-WORLD CRIME GAME &middot; SIX JOBS &middot; FIVE STARS &middot; ONE CITY</h2>
+  <button id="btnPlay">NEW GAME</button>
+  <button id="btnContinue" class="hidden">CONTINUE — <span id="saveInfo"></span></button>
+  <div class="controls">
+    <b>W A S D</b> move / drive &nbsp; <b>Shift</b> run / boost &nbsp; <b>E</b> enter / exit car<br>
+    <b>Mouse drag</b> look &nbsp; <b>Click</b> shoot / horn &nbsp; <b>F</b> punch &nbsp; <b>Space</b> handbrake<br>
+    <b>P</b> pause &nbsp; <b>M</b> mute &nbsp; <b>H</b> hide HUD &nbsp; <b>Wheel</b> zoom
+  </div>
+  <div class="save">Progress saves automatically to this browser.</div>
+</div>
+<div id="pause" class="overlay hidden">
+  <h1>PAUSED</h1>
+  <button id="btnResume">RESUME</button>
+  <button id="btnQuit">QUIT TO MENU</button>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
